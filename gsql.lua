@@ -145,5 +145,5 @@ function gsql:execute(index, parameters)
         return false
     end
     prepared:start()
-    self.affectedRows = prepared:affectedRows()
+    -- self.affectedRows = prepared:affectedRows() NOT SURE IF IT WORKS
 end
