@@ -9,9 +9,7 @@ gsql = gsql or {
     -- [database] MYSQLOO Database object
     connection = nil,
     -- [table][PreparedQuery] Prepared queries
-    prepared = {},
-    -- [number] Number of affected rows in the last query
-    affectedRows = nil
+    prepared = {}
 }
 
 --[[----------------------------------------------------------
@@ -62,14 +60,13 @@ function gsql:query(queryStr, parameters)
     end
     local query = self.connection:query(queryStr) -- Doing the query
     function query:onSuccess(data)
-        return data -- Simply return raw data
+        return data, self:affectedRows() -- Simply return raw data + affected rows
     end
     function query:onError(err)
         file.Append('gsql_logs.txt', '[gsql][query] : ' .. err)
         return false
     end
     query:start()
-    self.affectedRows = query:affectedRows()
 end
 
 --[[----------------------------------------------------------
@@ -145,5 +142,4 @@ function gsql:execute(index, parameters)
         return false
     end
     prepared:start()
-    -- self.affectedRows = prepared:affectedRows() NOT SURE IF IT WORKS
 end
