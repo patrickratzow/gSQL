@@ -142,7 +142,7 @@ function gsql:execute(index, callback, parameters)
     function prepared.onSuccess(data)
         callback(true, 'success', data)
     end
-    function prepared.onAborted(err)
+    function prepared.onAborted()
         callback(false, 'aborted')
     end
     function prepared.onError(err)
