@@ -8,6 +8,8 @@ require('mysqloo') -- Based on MySQLOO module https://github.com/FredyH/MySQLOO
 gsql = gsql or {
     -- [database] MYSQLOO Database object
     connection = nil,
+    -- [table][Query] Queries
+    queries = {},
     -- [table][PreparedQuery] Prepared queries
     prepared = {},
     -- [number] Number of affected rows in the last query
@@ -59,18 +61,19 @@ function gsql:query(queryStr, callback, parameters)
         v = self.connection:escape(v)
         queryStr = self.replace(queryStr, k, v)
     end
-    local query = self.connection:query(queryStr) -- Doing the query
-    function query.onSuccess(query, data)
+    local i = #self.queries + 1
+    self.queries[i] = self.connection:query(queryStr) -- Doing the query
+    self.queries[i].onSuccess = function(query, data)
         callback(true, 'success', data)
     end
-    function query.onAborted(query)
+    self.queries[i].onAborted = function(query)
         callback(false, 'aborted')
     end
-    function query.onError(query, err)
+    self.queries[i].onError = function(query, err)
         file.Append('gsql_logs.txt', '[gsql][query] : ' .. err)
         callback(false, 'error')
     end
-    query:start()
+    self.queries[i]:start()
     self.affectedRows = query:affectedRows()
 end
 
@@ -121,17 +124,16 @@ end
 ------------------------------------------------------------]]
 function gsql:execute(index, callback, parameters)
     parameters = parameters or {}
-    local prepared = self.prepared[index]
     local i = 1
     for _, v in pairs(parameters) do
         if (type(v) == 'number') then -- Thanks Lua for the absence of a switch statement
-            prepared:setNumber(i, v)
+            self.prepared[index]:setNumber(i, v)
         elseif (type(v) == 'string') then
-            prepared:setString(i, v)
+            self.prepared[index]:setString(i, v)
         elseif (type(v) == 'bool') then
-            prepared:setBool(i, v)
+            self.prepared[index]:setBool(i, v)
         elseif (type(v) == 'nil') then
-            prepared:setNull(i)
+            self.prepared[index]:setNull(i)
         else
             file.Append('gsql_logs.txt', '[gsql][execute] : Invalid type of parameter (parameter : ' .. k .. ' value : ' .. v .. ')')
             error('[gsql] : An error appears while preparing the query. See the logs for more informations!')
@@ -139,15 +141,15 @@ function gsql:execute(index, callback, parameters)
         end
         i = i + 1
     end
-    function prepared.onSuccess(query, data)
+    self.prepared[index].onSuccess = function (query, data)
         callback(true, 'success', data)
     end
-    function prepared.onAborted(query)
+    self.prepared[index].onAborted = function(query)
         callback(false, 'aborted')
     end
-    function prepared.onError(query, err)
+    self.prepared[index].onError = function(query, err)
         file.Append('gsql_logs.txt', '[gsql][execute] : ' .. err)
         callback(false, 'error')
     end
-    prepared:start()
+    self.prepared[index]:start()
 end
