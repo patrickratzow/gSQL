@@ -9,7 +9,9 @@ gsql = gsql or {
     -- [database] MYSQLOO Database object
     connection = nil,
     -- [table][PreparedQuery] Prepared queries
-    prepared = {}
+    prepared = {},
+    -- [number] Number of affected rows in the last query
+    affectedRows = nil
 }
 
 --[[----------------------------------------------------------
@@ -28,9 +30,8 @@ function gsql:new(obj, dbhost, dbname, dbuser, dbpass, port)
     -- Creating a new Database object
     self.connection = mysqloo.connect(dbhost, dbuser, dbpass, dbname, port)
     function self.connection.onError(err)
-        error('[gsql] A fatal error appenned while connecting to the database, please check your logs for more informations!')
         file.Append('gsql_logs.txt', '[gsql][new] : ' .. err)
-        return false
+        error('[gsql] A fatal error appenned while connecting to the database, please check your logs for more informations!')
     end
     self.connection:connect()
 
@@ -47,11 +48,11 @@ function gsql.replace(queryStr, name, value)
 end
 
 --[[----------------------------------------------------------
-    gsql:query([string] query, [, [table] parameters])
+    gsql:query([string] query, [function] callback, [, [table] parameters])
     Returns [table] data OR [bool] false
 ------------------------------------------------------------]]
-function gsql:query(queryStr, parameters)
-    if (queryStr == nil) then error('[gsql] Stupid ass cunt ! You call a query without giving the query itself!') end
+function gsql:query(queryStr, callback, parameters)
+    if (queryStr == nil) then error('[gsql] An error occured while trying to query : Argument \'queryStr\' is missing!') end
     parameters = parameters or {}
     -- By using this instead of a table in string.gsub, we avoid nil-related errors
     for k, v in pairs(parameters) do
@@ -59,14 +60,18 @@ function gsql:query(queryStr, parameters)
         queryStr = self.replace(queryStr, k, v)
     end
     local query = self.connection:query(queryStr) -- Doing the query
-    function query:onSuccess(data)
-        return data, self:affectedRows() -- Simply return raw data + affected rows
+    function query.onSuccess(data)
+        callback(true, 'success', data)
     end
-    function query:onError(err)
+    function query.onAbort()
+        callback(false, 'aborted')
+    end
+    function query.onError(err)
         file.Append('gsql_logs.txt', '[gsql][query] : ' .. err)
-        return false
+        callback(false, 'error')
     end
     query:start()
+    self.affectedRows = query:affectedRows()
 end
 
 --[[----------------------------------------------------------
@@ -76,11 +81,11 @@ end
 ------------------------------------------------------------]]
 function gsql:prepare(queryStr)
     if (queryStr == nil) then
-        error('[gsql] An error occured when preparing a query!')
         file.Append('gsql_logs.txt', '[gsql][prepare] : Argument \'queryStr\' is missing. ')
+        error('[gsql] An error occured when preparing a query!')
     elseif (type(queryStr) ~= 'string') then
-        error('[gsql] Are you stupid? An error occured when preparing a query!')
-        file.Append('gsql_logs.txt', '[gsql][prepare] : Incorrect type of \'queryStr\'. querySTR, STR = STRING, you MUST give a string!')
+        file.Append('gsql_logs.txt', '[gsql][prepare] : Incorrect type of \'queryStr\'.')
+        error('[gsql] An error occured when preparing a query!')
     end
     self.prepared[#self.prepared + 1] = self.connexion:prepare(queryStr)
 
@@ -95,12 +100,12 @@ end
 function gsql:delete(index)
     index = index or 1 -- First prepared query by default
     if (type(index) ~= 'number') then
-        error('[gsql] An error occured while trying to delete a prepared query!')
         file.Append('gsql_logs.txt', '[gsql][delete] : Invalid type of \'index\'. It must be a number.')
+        error('[gsql] An error occured while trying to delete a prepared query!')
     end
     if not self.prepared[index] then -- Checking if the index is correct
-        error('[gsql] An error occured while trying to delete a prepared query! See logs for more informations')
         file.Append('gsql_logs.txt', '[gsql][delete] : Invalid \'index\'. Requested deletion of prepared query number ' .. index .. ' as failed. Prepared query doesn\'t exist')
+        error('[gsql] An error occured while trying to delete a prepared query! See logs for more informations')
         return false
     end
     -- Setting the PreparedQuery object to nil
@@ -111,10 +116,10 @@ end
 --[[----------------------------------------------------------
     Execute all prepared queries by their order of preparation
     Delete the executed prepared query
-    gsql:execute([number] index, [table] parameters)
+    gsql:execute([number] index, [function] callback, [table] parameters)
     Returns [table] data OR [bool] false
 ------------------------------------------------------------]]
-function gsql:execute(index, parameters)
+function gsql:execute(index, callback, parameters)
     parameters = parameters or {}
     local prepared = self.prepared[index]
     local i = 1
@@ -128,18 +133,22 @@ function gsql:execute(index, parameters)
         elseif (type(v) == 'nil') then
             prepared:setNull(i)
         else
-            file.Append('gsql_logs.txt', '[gsql][execute] : Invalid type of parameter (parameter : ' .. k .. ' value : ' .. v)
-            error('[gsql][execute] : An error appears while preparing the query. See the logs for more informations!')
+            file.Append('gsql_logs.txt', '[gsql][execute] : Invalid type of parameter (parameter : ' .. k .. ' value : ' .. v .. ')')
+            error('[gsql] : An error appears while preparing the query. See the logs for more informations!')
             return false
         end
         i = i + 1
     end
-    function prepared:onSuccess(data)
-        return data -- Simply return raw data
+    function prepared.onSuccess(data)
+        callback(true, 'success', data)
     end
-    function prepared:onError(err)
+    function prepared.onError(err)
         file.Append('gsql_logs.txt', '[gsql][execute] : ' .. err)
-        return false
+        callback(false, 'aborted')
+    end
+    function prepared.onError(err)
+        file.Append('gsql_logs.txt', '[gsql][execute] : ' .. err)
+        callback(false, 'error')
     end
     prepared:start()
 end
