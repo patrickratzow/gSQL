@@ -60,13 +60,13 @@ function gsql:query(queryStr, callback, parameters)
         queryStr = self.replace(queryStr, k, v)
     end
     local query = self.connection:query(queryStr) -- Doing the query
-    function query.onSuccess(data)
+    function query.onSuccess(query, data)
         callback(true, 'success', data)
     end
-    function query.onAborted()
+    function query.onAborted(query)
         callback(false, 'aborted')
     end
-    function query.onError(err)
+    function query.onError(query, err)
         file.Append('gsql_logs.txt', '[gsql][query] : ' .. err)
         callback(false, 'error')
     end
@@ -139,13 +139,13 @@ function gsql:execute(index, callback, parameters)
         end
         i = i + 1
     end
-    function prepared.onSuccess(data)
+    function prepared.onSuccess(query, data)
         callback(true, 'success', data)
     end
-    function prepared.onAborted()
+    function prepared.onAborted(query)
         callback(false, 'aborted')
     end
-    function prepared.onError(err)
+    function prepared.onError(query, err)
         file.Append('gsql_logs.txt', '[gsql][execute] : ' .. err)
         callback(false, 'error')
     end
