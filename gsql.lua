@@ -63,7 +63,7 @@ function gsql:query(queryStr, callback, parameters)
     function query.onSuccess(data)
         callback(true, 'success', data)
     end
-    function query.onAbort()
+    function query.onAborted()
         callback(false, 'aborted')
     end
     function query.onError(err)
@@ -142,8 +142,7 @@ function gsql:execute(index, callback, parameters)
     function prepared.onSuccess(data)
         callback(true, 'success', data)
     end
-    function prepared.onError(err)
-        file.Append('gsql_logs.txt', '[gsql][execute] : ' .. err)
+    function prepared.onAborted(err)
         callback(false, 'aborted')
     end
     function prepared.onError(err)
