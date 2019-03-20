@@ -90,7 +90,7 @@ function gsql:prepare(queryStr)
         file.Append('gsql_logs.txt', '[gsql][prepare] : Incorrect type of \'queryStr\'.')
         error('[gsql] An error occured when preparing a query!')
     end
-    self.prepared[#self.prepared + 1] = self.connexion:prepare(queryStr)
+    self.prepared[#self.prepared + 1] = self.connection:prepare(queryStr)
 
     return #self.prepared + 1
 end
